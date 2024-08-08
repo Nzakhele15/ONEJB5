@@ -1,0 +1,100 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
+from PIL import Image
+import pickle
+
+# Load data from local CSV files
+@st.cache_data
+def load_data():
+    anime_df = pd.read_csv(r"C:\Users\Zakhele\Downloads\ONE\anime.csv")
+    train_df = pd.read_csv(r"C:\Users\Zakhele\Downloads\ONE\train.csv")
+    test_df = pd.read_csv(r"C:\Users\Zakhele\Downloads\ONE\test.csv")
+    return anime_df, train_df, test_df
+
+# Content-Based Recommendation
+def content_based_recommendation(anime_df, title, top_n=10):
+    tfidf = TfidfVectorizer(stop_words='english')
+    anime_df['description'] = anime_df['description'].fillna('')
+    tfidf_matrix = tfidf.fit_transform(anime_df['description'])
+    cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+
+    indices = pd.Series(anime_df.index, index=anime_df['title']).drop_duplicates()
+    idx = indices[title]
+
+    sim_scores = list(enumerate(cosine_sim[idx]))
+    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+    sim_scores = sim_scores[1:top_n + 1]
+
+    anime_indices = [i[0] for i in sim_scores]
+
+    return anime_df['title'].iloc[anime_indices]
+
+# Collaborative Filtering Recommendation
+def collaborative_filtering_recommendation(train_df, user_id, top_n=10):
+    user_ratings = train_df.pivot(index='user_id', columns='anime_id', values='rating')
+    user_ratings = user_ratings.fillna(0)
+
+    user_similarity = cosine_similarity(user_ratings)
+    user_sim_df = pd.DataFrame(user_similarity, index=user_ratings.index, columns=user_ratings.index)
+
+    similar_users = user_sim_df[user_id].sort_values(ascending=False)[1:top_n + 1].index
+    similar_users_ratings = user_ratings.loc[similar_users]
+
+    recommended_anime_ids = similar_users_ratings.mean(axis=0).sort_values(ascending=False).index[:top_n]
+    recommended_anime = train_df[train_df['anime_id'].isin(recommended_anime_ids)]['title'].unique()
+
+    return recommended_anime
+
+# Load the pre-trained model (for collaborative filtering, if required)
+def load_model():
+    with open(r"C:\Users\Zakhele\Downloads\ONE\anime_recommendation_model.pkl", "rb") as file:
+        model = pickle.load(file)
+    return model
+
+# Main App
+def main():
+    st.title("Anime Recommendation System")
+
+    anime_df, train_df, _ = load_data()
+
+    # Tabs for different functionalities
+    tabs = st.tabs(["Project Overview", "Executable App", "Contact Us"])
+    
+    with tabs[0]:
+        st.header("Project Overview")
+        st.write("This app provides anime recommendations based on content and collaborative filtering methods.")
+    
+    with tabs[1]:
+        st.header("Executable App")
+        st.sidebar.header("Select Recommendation Method")
+        method = st.sidebar.selectbox("Method", ["Content-Based", "Collaborative Filtering"])
+
+        if method == "Content-Based":
+            st.subheader("Content-Based Recommendation")
+            selected_anime = st.selectbox("Select Anime Title", anime_df['title'].unique())
+            if st.button("Recommend"):
+                recommendations = content_based_recommendation(anime_df, selected_anime)
+                st.write(f"Top recommendations based on {selected_anime}:")
+                for anime in recommendations:
+                    st.write(anime)
+
+        elif method == "Collaborative Filtering":
+            st.subheader("Collaborative Filtering Recommendation")
+            user_id = st.number_input("Enter User ID", min_value=1)
+            if st.button("Recommend"):
+                recommendations = collaborative_filtering_recommendation(train_df, user_id)
+                st.write(f"Top recommendations for User ID {user_id}:")
+                for anime in recommendations:
+                    st.write(anime)
+        
+    with tabs[2]:
+        st.header("Contact Us")
+        st.write("For suggestions or questions, please contact us at:")
+        st.write("Email: example@example.com")
+        st.write("Phone: +123456789")
+
+if __name__ == "__main__":
+    main()
