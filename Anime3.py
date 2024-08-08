@@ -219,8 +219,10 @@ def main():
         st.write("Logging parameters and metrics with MLFlow...")
 
     elif selected_tab == "Conclusion":
-        st.header("9. Conclusion")
-        st.write("Summarizing the project and findings...")
+        st.header("10. Conclusion")
+        st.write("In this project, we built an anime recommendation system using content-based and collaborative filtering approaches.")
+        st.write("The system was developed with various components including data cleaning, EDA, model training, and MLFlow integration.")
+        st.write("Future work could involve improving model accuracy and expanding the dataset.")
         
         st.subheader("9.1 Project Summary")
         st.write("The anime recommendation system achieved an MSE of...")

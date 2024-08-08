@@ -123,25 +123,28 @@ def main():
         # Display the image
         image_url = "https://cdn.prod.website-files.com/63119622d2a6edf1d171e0bc/65d3a069871456bd33730869_GC2xT1oWgAA1rAC.jpeg"
         st.image(image_url, caption='Exploratory Data Analysis', use_column_width=True)
-        
+    
         st.subheader("4.1 Importing Packages")
         st.code("import pandas as pd\nimport matplotlib.pyplot as plt\nimport seaborn as sns")
-        
+    
         st.subheader("4.2 Basic Statistics")
         anime_df, _, _ = load_data()
         st.write(anime_df.describe())
-        
+    
         st.subheader("4.3 Data Distribution")
         st.bar_chart(anime_df['genre'].value_counts())
-        
+    
         st.subheader("4.4 Correlation Analysis")
-        corr_matrix = anime_df.corr()
+        # Selecting only numeric columns for correlation matrix
+        numeric_df = anime_df.select_dtypes(include=[np.number])
+        corr_matrix = numeric_df.corr()
         st.write(corr_matrix)
-        
+    
         st.subheader("4.5 Exploring Relationships")
-        sns.pairplot(anime_df)
+        sns.pairplot(numeric_df)
         st.pyplot()
 
+    
     elif selected_tab == "Data Processing":
         st.header("5. Data Processing")
         # Display the image
@@ -216,8 +219,10 @@ def main():
         st.write("Logging parameters and metrics with MLFlow...")
 
     elif selected_tab == "Conclusion":
-        st.header("9. Conclusion")
-        st.write("Summarizing the project and findings...")
+        st.header("10. Conclusion")
+        st.write("In this project, we built an anime recommendation system using content-based and collaborative filtering approaches.")
+        st.write("The system was developed with various components including data cleaning, EDA, model training, and MLFlow integration.")
+        st.write("Future work could involve improving model accuracy and expanding the dataset.")
         
         st.subheader("9.1 Project Summary")
         st.write("The anime recommendation system achieved an MSE of...")

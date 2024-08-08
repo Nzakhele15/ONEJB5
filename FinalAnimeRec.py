@@ -19,11 +19,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 # Function to load CSV files from local directory
 @st.cache_data
 def load_csv_from_local(file_path):
-    try:
-        return pd.read_csv(file_path)
-    except FileNotFoundError:
-        st.error(f"File not found: {file_path}")
-        return None
+    return pd.read_csv(file_path)
 
 # Local file paths
 ANIME_CSV_PATH = 'C:/Users/Zakhele/Downloads/ONE/anime.csv'
@@ -36,15 +32,11 @@ def load_data():
     anime_df = load_csv_from_local(ANIME_CSV_PATH)
     train_df = load_csv_from_local(TRAIN_CSV_PATH)
     test_df = load_csv_from_local(TEST_CSV_PATH)
-    
-    if anime_df is None or train_df is None or test_df is None:
-        st.stop()
-    
     return anime_df, train_df, test_df
 
 # Train models (simplified example)
-def train_models(train_df):
-    # Splitting the train data into training and validation sets
+def train_models(train_df, test_df):
+    # Example model training code
     X = train_df.drop('rating', axis=1)
     y = train_df['rating']
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -53,15 +45,17 @@ def train_models(train_df):
     model.fit(X_train, y_train)
     
     # Evaluate the model
-    y_pred_val = model.predict(X_val)
-    mse_val = mean_squared_error(y_val, y_pred_val)
-    st.write(f"Validation MSE: {mse_val}")
+    y_pred = model.predict(X_val)
+    mse = mean_squared_error(y_val, y_pred)
+    st.write(f"Model MSE: {mse}")
     
     # Save the model
     with open('model.pkl', 'wb') as file:
         pickle.dump(model, file)
-    
-    return model
+
+    # Predictions for test set
+    test_pred = model.predict(test_df)
+    return test_pred
 
 # Content-Based Recommendation
 def content_based_recommendation(anime_df, title, top_n=10):
@@ -71,10 +65,6 @@ def content_based_recommendation(anime_df, title, top_n=10):
     cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
 
     indices = pd.Series(anime_df.index, index=anime_df['title']).drop_duplicates()
-    if title not in indices:
-        st.error(f"Title '{title}' not found in the dataset.")
-        return []
-    
     idx = indices[title]
 
     sim_scores = list(enumerate(cosine_sim[idx]))
@@ -93,10 +83,6 @@ def collaborative_filtering_recommendation(train_df, user_id, top_n=10):
     user_similarity = cosine_similarity(user_ratings)
     user_sim_df = pd.DataFrame(user_similarity, index=user_ratings.index, columns=user_ratings.index)
 
-    if user_id not in user_sim_df.index:
-        st.error(f"User ID '{user_id}' not found in the dataset.")
-        return []
-    
     similar_users = user_sim_df[user_id].sort_values(ascending=False)[1:top_n + 1].index
     similar_users_ratings = user_ratings.loc[similar_users]
 
@@ -107,14 +93,9 @@ def collaborative_filtering_recommendation(train_df, user_id, top_n=10):
 
 # Load the pre-trained model (for collaborative filtering, if required)
 def load_model():
-    model_path = r"C:\Users\Zakhele\Downloads\ONE\anime_recommendation_model.pkl"
-    try:
-        with open(model_path, "rb") as file:
-            model = pickle.load(file)
-        return model
-    except FileNotFoundError:
-        st.error(f"Model file not found: {model_path}")
-        return None
+    with open(r"C:\Users\Zakhele\Downloads\ONE\anime_recommendation_model.pkl", "rb") as file:
+        model = pickle.load(file)
+    return model
 
 # Main app
 def main():
@@ -198,7 +179,7 @@ def main():
     
         st.subheader("4.5 Exploring Relationships")
         sns.pairplot(numeric_df)
-        st.pyplot(plt.gcf())  # Pass the figure object to st.pyplot()
+        st.pyplot()
 
     elif selected_tab == "Data Processing":
         st.header("5. Data Processing")
@@ -209,68 +190,111 @@ def main():
         st.code("from sklearn.preprocessing import StandardScaler, LabelEncoder")
         
         st.subheader("5.2 Vectorization")
-        st.write("Vectorizing anime descriptions using TF-IDF...")
+        st.write("Vectorizing text features...")
+        
+        st.subheader("5.3 Scaling")
         anime_df, _, _ = load_data()
-        vectorizer = TfidfVectorizer()
-        anime_tfidf = vectorizer.fit_transform(anime_df['description'].fillna(''))
-        st.write(f"Vectorized shape: {anime_tfidf.shape}")
-
+        scaler = StandardScaler()
+        scaled_features = scaler.fit_transform(anime_df.select_dtypes(include=[np.number]))
+        st.write("Scaled features:")
+        st.write(scaled_features)
+        
+        st.subheader("5.4 Balancing")
+        st.write("Handling imbalanced data...")
+        
+        st.subheader("5.5 Encoding Categorical Variables")
+        label_encoder = LabelEncoder()
+        encoded_genre = label_encoder.fit_transform(anime_df['genre'])
+        st.write("Encoded genres:")
+        st.write(encoded_genre)
+    
     elif selected_tab == "Model Training and Evaluation":
         st.header("6. Model Training and Evaluation")
-        image_url = "https://www.sparkbit.pl/wp-content/uploads/2020/11/Model-Evaluation-Visualization-1.png"
-        st.image(image_url, caption='Model Training and Evaluation', use_column_width=True)
+        image_url = "https://m.mylargescale.com/1/9/7/9/8/6/5/IMG_6733.jpg"
+        st.image(image_url, caption='Model Training', use_column_width=True)
         
-        st.subheader("6.1 Training Models")
-        train_df, _, _ = load_data()[1:]
-        model = train_models(train_df)
+        st.subheader("6.1 Importing Packages")
+        st.code("from sklearn.ensemble import RandomForestRegressor\nfrom sklearn.metrics import mean_squared_error")
         
-        st.subheader("6.2 Model Evaluation")
-        st.write("Model trained and evaluated with the validation set.")
+        st.subheader("6.2 Training")
+        st.write("Training the model...")
+        anime_df, train_df, test_df = load_data()
+        predictions = train_models(train_df, test_df)
+        st.write("Training complete!")
+        
+        st.subheader("6.3 Evaluation")
+        st.write("Evaluating the model...")
+        mse = mean_squared_error(train_df['rating'], predictions[:len(train_df)])
+        st.write(f"Mean Squared Error: {mse}")
+        
+        st.subheader("6.4 Visualization")
+        st.line_chart(predictions[:len(train_df)])
 
     elif selected_tab == "Model Improvement":
         st.header("7. Model Improvement")
-        image_url = "https://turing.com/blog/wp-content/uploads/2022/12/Ensemble-Model.png"
-        st.image(image_url, caption='Model Improvement', use_column_width=True)
+        st.subheader("7.1 Importing Packages")
+        st.code("from sklearn.model_selection import GridSearchCV\nfrom sklearn.ensemble import RandomForestRegressor")
         
-        st.subheader("7.1 Hyperparameter Tuning")
-        st.write("Tuning hyperparameters to improve the model...")
-
+        st.subheader("7.2 Hyperparameter Tuning")
+        st.write("Tuning model hyperparameters...")
+        st.write("Example: GridSearchCV")
+    
     elif selected_tab == "MLFlow Integration":
         st.header("8. MLFlow Integration")
-        st.subheader("8.1 Experiment Tracking")
-        st.write("Integrating MLFlow for experiment tracking and logging...")
-
+        image_url = "https://miro.medium.com/v2/resize:fit:1400/format:webp/1*rb53EZIC7KaKPAxt74T7uA.png"
+        st.image(image_url, caption='MLFlow Integration', use_column_width=True)
+        
+        st.subheader("8.1 Importing Packages")
+        st.code("import mlflow\nimport mlflow.sklearn")
+        
+        st.subheader("8.2 Logging Parameters and Metrics")
+        st.write("Logging parameters and metrics with MLFlow...")
+    
     elif selected_tab == "Executable App":
         st.header("9. Executable App")
-        image_url = "https://t3.ftcdn.net/jpg/05/67/70/64/360_F_567706405_8sCCK5zV9GpPApntqCGJlYIxOhQ9B4mS.jpg"
-        st.image(image_url, caption='Executable App', use_column_width=True)
+        image_url = "https://mobidev.biz/images/app_development/How_to_Develop_a_Real-Time_Communication_App/How_to_Develop_a_Real-Time_Communication_App.jpg"
+        st.image(image_url, caption='Anime Recommendation Executable App', use_column_width=True)
         
-        st.subheader("9.1 Building Streamlit App")
-        st.write("Building the app for real-time anime recommendations...")
+        st.subheader("9.1 Content-Based Filtering")
+        st.write("Provide an anime title to get content-based recommendations:")
+        anime_df, _, _ = load_data()
+        selected_anime = st.selectbox("Select an anime:", anime_df['title'].tolist())
+        recommendations = content_based_recommendation(anime_df, selected_anime)
+        st.write(f"Top content-based recommendations for '{selected_anime}':")
+        st.write(recommendations)
+        
+        st.subheader("9.2 Collaborative Filtering")
+        st.write("Provide a user ID to get collaborative filtering recommendations:")
+        user_id = st.number_input("Enter user ID:", min_value=1)
+        if st.button("Get Recommendations"):
+            recommendations = collaborative_filtering_recommendation(train_df, user_id)
+            st.write(f"Top collaborative filtering recommendations for user {user_id}:")
+            st.write(recommendations)
+        
+        st.subheader("9.3 Model Deployment")
+        st.write("Load a pre-trained model for making predictions:")
+        model = load_model()
+        st.write("Model loaded successfully!")
 
     elif selected_tab == "Conclusion":
         st.header("10. Conclusion")
-        image_url = "https://pm1.narvii.com/6688/cd556c45063087c139478dd492501113d0d6e6cc_hq.jpg"
-        st.image(image_url, caption='Conclusion', use_column_width=True)
+        st.write("In this project, we built an anime recommendation system using content-based and collaborative filtering approaches.")
+        st.write("The system was developed with various components including data cleaning, EDA, model training, and MLFlow integration.")
+        st.write("Future work could involve improving model accuracy and expanding the dataset.")
         
-        st.subheader("10.1 Summary")
-        st.write("Summarizing the findings and performance of the recommendation system...")
-
     elif selected_tab == "Team Members":
         st.header("11. Team Members")
-        image_url = "https://cdn-icons-png.flaticon.com/512/492/492810.png"
-        st.image(image_url, caption='Team Members', use_column_width=True)
+        st.write("Zakhele Mabuza")
+        st.write("Kentse Mphahlele")
+        st.write("Kamogelo Thalakgale")
+        st.write("Neo Mbhele")
+        st.write("Paballo Saku")
         
-        st.subheader("11.1 Meet the Team")
-        st.write("Introducing the team members behind this project...")
-
     elif selected_tab == "Contact Us":
         st.header("12. Contact Us")
-        image_url = "https://cdn-icons-png.flaticon.com/512/733/733547.png"
-        st.image(image_url, caption='Contact Us', use_column_width=True)
-        
-        st.subheader("12.1 Get in Touch")
-        st.write("For any inquiries or feedback, please reach out to us...")
+        st.write("If you have any questions or need further assistance, feel free to contact us.")
+        st.write("Email: Nzakhele15@gmail.com")
+        st.write("Phone: +27 73 636 1228")
 
 if __name__ == "__main__":
     main()
